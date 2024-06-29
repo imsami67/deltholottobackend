@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\SaleReportController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -22,3 +24,14 @@ Route::get('/', function () {
 Route::get('/login', function () {
     return view('welcome');
 });
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/saleReport' , [SaleReportController::class, 'saleReport']);
+
+});
+
+Route::get('/print', function () {
+    return view('print');
+});
+
+Route::get('/printOrder/{id}' , [OrderController::class, 'printOrder']);

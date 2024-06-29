@@ -73,7 +73,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/orderList' , [OrderController::class, 'orderList']);
 
     Route::get('/orderprint/{id}' , [OrderController::class, 'orderprint']);
-
+    
+    Route::get('/printOrder/{id}' , [OrderController::class, 'printOrder']);
+    
     Route::get('/deleteorder/{id}' , [OrderController::class, 'deleteorder']);
 
 

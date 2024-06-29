@@ -111,19 +111,19 @@ class DashboardController extends Controller
 
             $data = [
                 [
-                    'img' => 'https://cdn-icons-png.flaticon.com/512/1177/1177568.png',
+                    'img' => asset('assets/images/2.png'),
                     'name' => 'Total Admin',
                     'spanishName' => 'Administración',
                     'amount' => number_format($userCounts->totalAdmin),
                 ],
                 [
-                    'img' => 'https://cdn-icons-png.flaticon.com/512/1177/1177568.png',
+                    'img' => asset('assets/images/2.png'),
                     'name' => 'Total Manager',
                     'spanishName' => 'Gerente Total',
                     'amount' => number_format($userCounts->totalManager),
                 ],
                 [
-                    'img' => 'https://cdn-icons-png.flaticon.com/512/1177/1177568.png',
+                    'img' => asset('assets/images/2.png'),
                     'name' => 'Total Sellers',
                     'spanishName' => 'Vendedores Totales',
                     'amount' => number_format($userCounts->totalSeller),
@@ -135,7 +135,7 @@ class DashboardController extends Controller
                     'amount' => number_format($totalLot),
                 ],
                 [
-                    'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+                    'img' => asset('assets/images/2.png'),
                     'name' => 'App',
                     'spanishName' => 'App',
                     'amount' => number_format($totalCollected * 0.005, 2),
@@ -231,31 +231,31 @@ public function adminDashboard($user)
 
         $emparray = [
             [
-                'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+                'img' => asset('assets/images/1.png'),
                 'name' => 'Lotteries amount (Sellers)',
                 'spanishName' => 'Cantidad de loterías (Vendedores)',
                 'amount' => number_format($totalCollected, 2),
             ],
             [
-                'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+                'img' => asset('assets/images/4.png'),
                 'name' => 'Paid winning Number',
                 'spanishName' => 'Ganador Pagado',
                 'amount' => number_format($totalWin, 2),
             ],
             [
-                'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+                'img' => asset('assets/images/3.png'),
                 'name' => ' Commision',
                 'spanishName' => 'comisión ',
                 'amount' => number_format($totalManagerCommission, 2),
             ],
             [
-                'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+                'img' => asset('assets/images/5.png'),
                 'name' => 'Balance',
                 'spanishName' => 'Saldo',
                 'amount' => number_format($balance, 2),
             ],
             [
-                'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+                'img' => asset('assets/images/2.png'),
                 'name' => 'App',
                 'spanishName' => 'App',
                 'amount' => number_format($totalAppCommission, 2),
@@ -347,7 +347,7 @@ $lastCutEntry = DB::table('cut_history')
 
             $data = [
                 [
-                    'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+                    'img' => asset('assets/images/1.png'),
                     'name' => 'Total Sold',
                     'spanishName' => 'Total vendido',
                     'amount' => number_format($totalCollected, 2)
@@ -357,13 +357,13 @@ $lastCutEntry = DB::table('cut_history')
 
             if ($user->commission > 0) {
                 $data[] = [
-                        'img' => 'https://cdn-icons-png.flaticon.com/512/1177/1177568.png',
+                        'img' => asset('assets/images/2.png'),
                         'name' => 'Seller Commision',
                         'spanishName' => 'Porcentaje De Comisión',
                         'amount' => $user->commission . '%'
                 ];
                 $data[] = [
-                        'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+                        'img' => asset('assets/images/3.png'),
                         'name' => 'Commision Amount',
                         'spanishName' => 'Comisión',
                         'amount' => number_format($totalCollected * $user->commission / 100, 2)
@@ -371,14 +371,14 @@ $lastCutEntry = DB::table('cut_history')
             }
 
             $data[] = [
-                        'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+                        'img' => asset('assets/images/4.png'),
                         'name' => 'Paid winning Number',
                         'spanishName' => 'Ganador Pagado', // total paid winniw numbers
                         'amount' => number_format($totalWin,2),
             ];
 
             $data[] = [
-                        'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+                        'img' => asset('assets/images/5.png'),
          	            'name' => 'Balance',
 					 	'spanishName' => 'Efectivo', // Total amount(cash in hand )
 					 	'amount' => number_format($totalCollected - $totalWin,2),
@@ -391,7 +391,7 @@ $lastCutEntry = DB::table('cut_history')
             }
 
             $data[] = [
-                        'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+                        'img' => asset('assets/images/5.png'),
 			            'name' => 'Cash',
 					 	'spanishName' => 'Saldo',// seller commision in amount
 					 	'amount' => $saldo,
@@ -506,49 +506,49 @@ public function managerDashboard($user)
 
     $dashboardArray = [
         [
-            'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+            'img' => asset('assets/images/1.png'),
             'name' => 'Total Sold',
             'spanishName' => 'Total vendido',
             'amount' => number_format($dashboardData['totalSold'], 2),
         ],
         [
-            'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+            'img' => asset('assets/images/3.png'),
             'name' => ' Commision ',
             'spanishName' => 'Porcentaje De Comisión',// seller commision %
             'amount' =>  $user->commission."%",
         ],
         [
-            'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+            'img' => asset('assets/images/2.png'),
             'name' => 'Total Sellers',
             'spanishName' => 'Total de vendedores',
             'amount' => number_format($dashboardData['totalSellers'], 2),
         ],
         [
-            'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+            'img' => asset('assets/images/3.png'),
             'name' => 'Total Commission',
             'spanishName' => 'Total de comisiones',
             'amount' => number_format($dashboardData['totalCommission'], 2),
         ],
         [
-            'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+            'img' => asset('assets/images/5.png'),
             'name' => 'Total Paid',
             'spanishName' => 'Total pagado',
             'amount' => number_format($dashboardData['totalPaid'], 2),
         ],
         [
-            'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+            'img' => asset('assets/images/5.png'),
             'name' => 'Total Win',
             'spanishName' => 'Total ganado',
             'amount' => number_format($dashboardData['totalWin'], 2),
         ],
         [
-            'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+            'img' => asset('assets/images/3.png'),
             'name' => 'Cash In Hand',
             'spanishName' => 'Dinero en mano',
             'amount' => number_format($dashboardData['cashInHand'], 2),
         ],
         [
-            'img' => 'https://cdn-icons-png.flaticon.com/512/3737/3737252.png',
+            'img' => asset('assets/images/3.png'),
             'name' => 'App Commission',
             'spanishName' => 'Comisión de la aplicación',
             'amount' => number_format($dashboardData['appCommission'], 2),

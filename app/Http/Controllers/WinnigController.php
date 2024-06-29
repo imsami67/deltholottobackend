@@ -14,6 +14,9 @@ class WinnigController extends Controller
             $date = now()->toDateString();
             $lot  = $request->lot_id;
             $win  = $request->win_number;
+            $firstWin = $request->first_win_number;
+            $secondWin = $request->second_win_number;
+            $thirdWin = $request->third_win_number;
             $user = auth()->user();
             $user = $user->user_id;
 
@@ -24,6 +27,9 @@ class WinnigController extends Controller
                     'add_date' => $date,
                     'lot_id' => $lot,
                     'number_win' => $win,
+                    'first_win_number' => $firstWin,
+                    'second_win_number' => $secondWin,
+                    'third_win_number' => $thirdWin,
                     'added_by' => $user
                 ]);
 
