@@ -9,7 +9,7 @@ class WinnigController extends Controller
 {
     public function addWinningNumber(Request $request)
 {
-    if (!empty($request->lot_id) && (!empty($request->win_number) || !empty($request->first_win_number))) {
+    if (!empty($request->lot_id)) {
         $date = now()->toDateString();
         $lot = $request->lot_id;
         $win = $request->win_number ?? null;
