@@ -141,7 +141,7 @@ public function getLotteriesListAll($lotteryId = null)
     $adminIdThis = $this->getAdminId($userId);
 
     $query = DB::table('lotteries')
-        ->select('lot_id', 'lot_name AS name', 'is_open', 'multiply_number', 'img_url', 'winning_type', 'lot_opentime', 'lot_closetime','lot_colorcode')
+        ->select('lot_id', 'lot_name AS name', 'is_open', 'multiply_number', DB::raw('IFNULL(img_url, "/assets/images/logo2.png") AS img_url'), 'winning_type', 'lot_opentime', 'lot_closetime','lot_colorcode')
         ->when($userRole != 'superadmin', function ($query) use ($adminIdThis) {
             return $query->where('user_added_id', $adminIdThis);
         })
