@@ -8,103 +8,97 @@ use Illuminate\Http\Request;
 class WinnigController extends Controller
 {
     public function addWinningNumber(Request $request)
-{
-    if (!empty($request->lot_id)) {
-        $date = now()->toDateString();
-        $lot = $request->lot_id;
-        $win = $request->win_number ?? null;
-        $firstWin = $request->first_win_number;
-        $secondWin = $request->second_win_number;
-        $thirdWin = $request->third_win_number;
-        $user = auth()->user();
-        $user = $user->user_id;
+    {
+        //dd(auth()->user());
+        if(!empty($request->lot_id)) {
+            $date = now()->toDateString();
+            $lot  = $request->lot_id;
+            $win  = $request->win_number;
+            $firstWin = $request->first_win_number;
+            $secondWin = $request->second_win_number;
+            $thirdWin = $request->third_win_number;
+            $user = auth()->user();
+            $user = $user->user_id;
 
-        DB::beginTransaction();
+            DB::beginTransaction();
 
-        try {
-            $inserted = DB::table('winning_numbers')->insert([
-                'add_date' => $date,
-                'lot_id' => $lot,
-                'number_win' => $win,
-                'first_win_number' => $firstWin,
-                'second_win_number' => $secondWin,
-                'third_win_number' => $thirdWin,
-                'added_by' => $user
-            ]);
+            try {
+                $inserted = DB::table('winning_numbers')->insert([
+                    'add_date' => $date,
+                    'lot_id' => $lot,
+                    'number_win' => $win,
+                    'first_win_number' => $firstWin,
+                    'second_win_number' => $secondWin,
+                    'third_win_number' => $thirdWin,
+                    'added_by' => $user
+                ]);
 
-            if ($inserted) {
-                $totalwinadded = 0;
+                if($inserted) {
+                    $totalwinadded = 0;
+                    $getwinorder = DB::table('order_item')
+                        ->select('order_item_id', 'order_id', 'product_id', 'product_name', 'lot_number', 'lot_frac', 'lot_amount', 'lottery_gone', 'transaction_paid_id', 'order_item_status', 'winning_amount', 'lotterycollected', DB::raw('cast(adddatetime as date)'))
+                        ->where('lottery_gone', '0')
+                        ->where('product_id', $lot)
+                        ->where('lot_number', $win)
+                        ->where(DB::raw('cast(adddatetime as date)'), $date)
+                        ->get();
 
-                // Adjusting the query logic to handle cases where $win might be null
-                $getwinorderQuery = DB::table('order_item')
-                    ->select('order_item_id', 'order_id', 'product_id', 'product_name', 'lot_number', 'lot_frac', 'lot_amount', 'lottery_gone', 'transaction_paid_id', 'order_item_status', 'winning_amount', 'lotterycollected', DB::raw('cast(adddatetime as date)'))
-                    ->where('lottery_gone', '0')
-                    ->where('product_id', $lot)
-                    ->where(DB::raw('cast(adddatetime as date)'), $date);
+                    $lotDetails = DB::table('lotteries')->where('lot_id', $lot)->first();
 
-                if ($win !== null) {
-                    $getwinorderQuery->where('lot_number', $win);
+                    foreach($getwinorder as $rowq) {
+                        $winAmount = $rowq->lot_amount * $lotDetails->multiply_number;
+                        $totalwinadded += $winAmount;
+
+                        DB::table('order_item')
+                            ->where('order_item_id', $rowq->order_item_id)
+                            ->update(['winning_amount' => $winAmount]);
+
+                        $GetOrder = DB::table('order_item')->where('order_item_id', $rowq->order_item_id)->value('order_id');
+                        $GetOrderitemid = DB::table('order_item')->where('order_item_id', $rowq->order_item_id)->value('order_item_id');
+                        $user_idNow = DB::table('orders')->where('order_id', $GetOrder)->value('user_id');
+                    }
+
+                    $getgoneorder = DB::table('order_item')
+                        ->where('lottery_gone', '0')
+                        ->where('product_id', $lot)
+                        ->get();
+
+                    foreach($getgoneorder as $goneupdate) {
+                        DB::table('order_item')
+                            ->where('order_item_id', $goneupdate->order_item_id)
+                            ->update(['lottery_gone' => '1']);
+                    }
+
+                    // Add your transaction insertion here
+
+                    DB::commit();
+
+                    $arr = [
+                        'msg' => 'Winning Number Added..!',
+                        'success' => true,
+                    ];
+                } else {
+                    $arr = [
+                        'msg' => 'Failed to add winning number.',
+                        'success' => false,
+                    ];
                 }
-
-                $getwinorder = $getwinorderQuery->get();
-
-                $lotDetails = DB::table('lotteries')->where('lot_id', $lot)->first();
-
-                foreach ($getwinorder as $rowq) {
-                    $winAmount = $rowq->lot_amount * $lotDetails->multiply_number;
-                    $totalwinadded += $winAmount;
-
-                    DB::table('order_item')
-                        ->where('order_item_id', $rowq->order_item_id)
-                        ->update(['winning_amount' => $winAmount]);
-
-                    $GetOrder = DB::table('order_item')->where('order_item_id', $rowq->order_item_id)->value('order_id');
-                    $GetOrderitemid = DB::table('order_item')->where('order_item_id', $rowq->order_item_id)->value('order_item_id');
-                    $user_idNow = DB::table('orders')->where('order_id', $GetOrder)->value('user_id');
-                }
-
-                $getgoneorder = DB::table('order_item')
-                    ->where('lottery_gone', '0')
-                    ->where('product_id', $lot)
-                    ->get();
-
-                foreach ($getgoneorder as $goneupdate) {
-                    DB::table('order_item')
-                        ->where('order_item_id', $goneupdate->order_item_id)
-                        ->update(['lottery_gone' => '1']);
-                }
-
-                // Add your transaction insertion here
-
-                DB::commit();
-
+            } catch (\Exception $e) {
+                DB::rollback();
                 $arr = [
-                    'msg' => 'Winning Number Added..!',
-                    'success' => true,
-                ];
-            } else {
-                $arr = [
-                    'msg' => 'Failed to add winning number.',
+                    'msg' => $e->getMessage(),
                     'success' => false,
                 ];
             }
-        } catch (\Exception $e) {
-            DB::rollback();
-            $arr = [
-                'msg' => $e->getMessage(),
+
+            return response()->json($arr);
+        } else {
+            return response()->json([
+                'msg' => 'Missing required parameters.',
                 'success' => false,
-            ];
+            ]);
         }
-
-        return response()->json($arr);
-    } else {
-        return response()->json([
-            'msg' => 'Missing required parameters.',
-            'success' => false,
-        ]);
     }
-}
-
 
 
     public function winListAll(Request $request)
