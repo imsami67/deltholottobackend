@@ -10,10 +10,10 @@ class WinnigController extends Controller
     public function addWinningNumber(Request $request)
     {
         //dd(auth()->user());
-        if(!empty($request->lot_id) && !empty($request->win_number) ) {
+        if(!empty($request->lot_id)) {
             $date = now()->toDateString();
             $lot  = $request->lot_id;
-            $win  = $request->win_number;
+            $win  = $request->win_number ?? null;
             $firstWin = $request->first_win_number;
             $secondWin = $request->second_win_number;
             $thirdWin = $request->third_win_number;
