@@ -9,11 +9,77 @@ use App\Mail\RequestConfirmation;
 use Illuminate\Support\Facades\Mail;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
+
 
 class UserController extends Controller
 {
     //
+    public function getNotifications(){
+        try{
+            
+            $user = Auth()->user();
+            
+            $notifications = DB::table('notifications')->where('seller_id', $user->user_id)->orderBy('add_datetime', 'DESC')->get();
+            
+            if ($notifications->isEmpty()) {
+                return response()->json(['success' => false, 'message' => 'No notifications found', 'data' => []], 404);
+            }
+            
+            return response()->json(['success' => true, 'data' => $notifications], 200);
+            
+        }catch(\Exception $e){
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+        }
+    }
+    
+    public function readNotification(Request $request){
+        try{
+            
+            $id = $request->input('notification_id');
+            
+        $notification = DB::table('notifications')->where('notification_id', $id)->first();
+        
+        // Check if the notification exists
+        if (!$notification) {
+            return response()->json(['success' => false, 'message' => 'Notification not found'], 404);
+        }
 
+        // Update the notification status to 'read'
+        DB::table('notifications')->where('notification_id', $id)->update(['notification_status' => 'read']);
+        
+        return response()->json(['success' => true, 'message' => 'Notification marked as read'], 200);
+        
+        }catch(\Exception $e){
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+        }
+    }
+
+    public function verifyUser(Request $request)
+{
+    try{
+        // Get the authenticated user
+    $user = Auth()->user();
+
+    // Store the images in the storage folder and get their paths
+    $cnicFrontPath = $request->file('cnic_front')->store('public/cnic_images');
+    $cnicBackPath = $request->file('cnic_back')->store('public/cnic_images');
+    $verifiedImagePath = $request->file('verified_image')->store('public/cnic_images');
+
+   // Update the user record with the paths of the stored images
+        DB::table('users')->where('user_id', $user->user_id)->update([
+            'cnic_front' => Storage::url($cnicFrontPath),
+            'cnic_back' => Storage::url($cnicBackPath),
+            'verified_image' => Storage::url($verifiedImagePath),
+        ]);
+
+    return response()->json(['success' => true, 'message' => 'User verified successfully'], 200);
+    }catch(\Exception $e){
+        return response()->json(['success' => false, 'message' => $e->getMessage], 400);
+    }
+}
 
     public function addusers(Request $request ,  $user_id = null)
     {
@@ -54,7 +120,7 @@ class UserController extends Controller
             } catch (\Exception $e) {
                 $response = [
                     'success' => false,
-                    'msg'       => $e->getMessage(),
+                    'msg'       => "User Already Exist",
                 ];
             }
 
@@ -73,6 +139,10 @@ class UserController extends Controller
     public function requestUser(Request $request ){
         if ($request->filled(['username','useremail', 'password'])) {
             try {
+                
+            //     $cnicFrontPath = $request->file('cnic_front')->store('public/cnic_images');
+            // $cnicBackPath = $request->file('cnic_back')->store('public/cnic_images');
+            // $verifiedImagePath = $request->file('verified_image')->store('public/cnic_images');
                 $requestData = [
                     'username'  => $request->input('username'),
                     'email'     => $request->input('useremail'),
@@ -82,6 +152,22 @@ class UserController extends Controller
                     'address'   => $request->input('address'),
                 ];
 
+                
+                if ($request->hasFile('cnic_front')) {
+                $cnicFrontPath = $request->file('cnic_front')->store('public/cnic_images');
+                $requestData['cnic_front'] = Storage::url($cnicFrontPath);
+                }
+    
+                if ($request->hasFile('cnic_back')) {
+                    $cnicBackPath = $request->file('cnic_back')->store('public/cnic_images');
+                    $requestData['cnic_back'] = Storage::url($cnicBackPath);
+                }
+    
+                if ($request->hasFile('verified_image')) {
+                    $verifiedImagePath = $request->file('verified_image')->store('public/cnic_images');
+                    $requestData['verified_image'] = Storage::url($verifiedImagePath);
+                }
+                
                 // Insert request user data into the 'request_user' table
                 RequestUser::create($requestData);
 
@@ -107,6 +193,46 @@ class UserController extends Controller
         }
     }
 
+            public function approveUser(Request $request)
+        {
+            try {
+                $user = Auth()->user();
+                $requestedUserId = $request->input('req_user_id');
+        
+                // Fetch the user data from the request_user table
+                $requestedUser = DB::table('request_user')->where('req_user_id', $requestedUserId)->first();
+        
+                if (!$requestedUser) {
+                    return response()->json(['success' => false, 'message' => 'Requested user not found'], 404);
+                }
+        
+                // Prepare data for insertion into the users table
+                $userData = [
+                    'username'          => $requestedUser->username,
+                    'email'             => $requestedUser->email,
+                    'password'          => md5($requestedUser->password),
+                    'address'           => $requestedUser->address,
+                    'phone'             => $requestedUser->phone,
+                    'user_role'         => $requestedUser->user_role,
+                    'commission'        => 0, // Assuming initial commission is 0
+                    'added_user_id'     => $user->user_id, // Assuming the current authenticated user is adding the user
+                    'status'            => $requestedUser->status, // Assuming the status is active on approval
+                    'cnic_front'        => $requestedUser->cnic_front,
+                    'cnic_back'         => $requestedUser->cnic_back,
+                    'verified_image'    => $requestedUser->verified_image,
+                ];
+        
+                // Insert the user data into the users table
+                DB::table('users')->insert($userData);
+        
+                // Delete the user from the request_user table
+                DB::table('request_user')->where('req_user_id', $requestedUserId)->delete();
+        
+                return response()->json(['success' => true, 'message' => 'User approved and added to users table successfully']);
+            } catch (\Exception $e) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+            }
+        }
 
     public function requestUserList(Request $request  ){
 
@@ -155,7 +281,7 @@ class UserController extends Controller
 
 // user list based on user role
 
-public function userList(Request $request)
+public function userList(Request $request, $all = null)
 {
     $userId = auth()->user()->user_id;
     $loggedInUser = User::find($userId);
@@ -175,16 +301,147 @@ public function userList(Request $request)
                 'msg' => 'Get Successfully',
                 'data' => $userTree
             ];
-        } else {
-            $admins = User::select('user_id', 'username', 'email', 'phone', 'user_role', 'commission','status')
-            ->where(function($query) use ($userId) {
-                $query->where('added_user_id', $userId)
-                      ->orWhere('user_id', $userId);
-            })
-            ->where('status', 1)
-            ->orderBy('user_role', 'ASC')
-            ->get();
+        } elseif ($loggedInUser->user_role === 'manager') {
+            $admins = User::select('user_id', 'username', 'email', 'phone', 'user_role', 'commission', 'status')
+                ->where(function($query) use ($userId) {
+                    $query->where('added_user_id', $userId)
+                        //   ->orWhere('user_id', $userId)
+                          ;
+                })
+                ->where('status', 1)
+                ->orderBy('user_role', 'ASC')
+                ->get();
 
+            $adminsArray = $admins->toArray();
+
+            $jsonResponse = [
+                'success' => true,
+                'msg' => 'Get Successfully',
+                'data' => $adminsArray
+            ];
+        } elseif ($loggedInUser->user_role === 'admin') {
+            // Get admin details
+    $adminDetails = User::select('user_id', 'username', 'email', 'phone', 'user_role', 'status')
+        ->where('user_id', $userId)
+        ->where('status', 1)
+        ->first();
+
+    // Get managers added by admin
+    $managers = User::select('user_id', 'username', 'email', 'phone', 'user_role', 'status')
+        ->where('added_user_id', $userId)
+        ->where('user_role', 'manager')
+        ->where('status', 1)
+        ->get();
+
+    // Get sellers directly added by admin
+    $adminSellers = User::select('user_id', 'username', 'email', 'phone', 'user_role', 'status')
+        ->where('added_user_id', $userId)
+        ->where('user_role', 'seller')
+        ->where('status', 1)
+        ->get();
+
+    // Get sellers added by managers
+    $managersWithSellers = $managers->flatMap(function($manager) {
+        return User::select('user_id', 'username', 'email', 'phone', 'user_role', 'status')
+            ->where('added_user_id', $manager->user_id)
+            ->where('user_role', 'seller')
+            ->where('status', 1)
+            ->get();
+    });
+
+    if ($all !== null) {
+        // Create an array to hold all the data
+        $responseData = [];
+        
+        // Add admin details first
+        // $adminData = [
+        //     'user_id' => $adminDetails->user_id,
+        //     'username' => $adminDetails->username . ' (' . $adminDetails->user_role . ')',
+        //     'email' => $adminDetails->email,
+        //     'phone' => $adminDetails->phone,
+        //     'user_role' => $adminDetails->user_role,
+        //     'status' => $adminDetails->status,
+        // ];
+        
+        // // Add admin details to the response data
+        // $responseData[] = $adminData;
+        
+        // Merge sellers directly under the admin
+        $adminSellers = collect($adminSellers)->map(function($seller) {
+            $seller->username = $seller->username . ' (' . $seller->user_role . ')';
+            return $seller;
+        });
+        $responseData = array_merge($responseData, $adminSellers->toArray());
+        
+        // Merge managers
+        $managers = collect($managers)->map(function($manager) {
+            $manager->username = $manager->username . ' (' . $manager->user_role . ')';
+            return $manager;
+        });
+        $responseData = array_merge($responseData, $managers->toArray());
+        
+        // Merge sellers under the managers
+        $managersWithSellers = collect($managersWithSellers)->map(function($seller) {
+            $seller->username = $seller->username . ' (' . $seller->user_role . ')';
+            return $seller;
+        });
+        $responseData = array_merge($responseData, $managersWithSellers->toArray());
+    }else {
+                $managersWithChildren = $managers->map(function($manager) {
+        $sellers = User::select('user_id', 'username', 'email', 'phone', 'user_role', 'status')
+            ->where('added_user_id', $manager->user_id)
+            ->where('user_role', 'seller')
+            ->where('status', 1)
+            ->get()
+            ->map(function($seller) {
+                // Add user_role in parentheses to the seller's username
+                $seller->username = $seller->username . ' (' . $seller->user_role . ')';
+                $seller->children = []; // Add empty children array to each seller
+                return $seller;
+            });
+
+        // Add user_role in parentheses to the manager's username
+        $manager->username = $manager->username . ' (' . $manager->user_role . ')';
+        
+        // Attach the sellers as children to the manager
+        $manager->children = $sellers->toArray();
+        return $manager;
+    });
+    
+    // Ensure admin sellers have empty children arrays and include user_role in username
+    $adminSellersWithChildren = $adminSellers->map(function($seller) {
+        // Add user_role in parentheses to the seller's username
+        $seller->username = $seller->username . ' (' . $seller->user_role . ')';
+        $seller->children = []; // Add empty children array to each seller
+        return $seller;
+    });
+
+    // Prepare the response data including admin details
+    $responseData = [[
+        'user_id' => $adminDetails->user_id,
+        'username' => $adminDetails->username . ' (' . $adminDetails->user_role . ')', // Add user_role in parentheses to the admin's username
+        'email' => $adminDetails->email,
+        'phone' => $adminDetails->phone,
+        'user_role' => $adminDetails->user_role,
+        'status' => $adminDetails->status,
+        'children' => array_merge($adminSellersWithChildren->toArray(), $managersWithChildren->toArray())
+    ]];
+            }
+
+            $jsonResponse = [
+                'success' => true,
+                'msg' => 'Get Successfully',
+                'data' => $responseData
+            ];
+        } else {
+            $admins = User::select('user_id', 'username', 'email', 'phone', 'user_role', 'commission', 'status')
+                ->where(function($query) use ($userId) {
+                    $query->where('added_user_id', $userId)
+                          ->orWhere('user_id', $userId);
+                })
+                ->where('status', 1)
+                ->orderBy('user_role', 'ASC')
+                ->get();
 
             $adminsArray = $admins->toArray();
 
@@ -263,8 +520,9 @@ private function buildUserTree($users)
 {
     $userHash = [];
 
-    // Create a hash table using user_id as keys
+    // Create a hash table using user_id as keys and initialize the children array
     foreach ($users as $user) {
+        $user['children'] = [];
         $userHash[$user['user_id']] = $user;
     }
 
@@ -277,22 +535,17 @@ private function buildUserTree($users)
         } elseif ($user['user_role'] === 'manager' && isset($userHash[$user['added_user_id']])) {
             // Manager is a child of admin
             $parent = &$userHash[$user['added_user_id']];
-            if (!isset($parent['children'])) {
-                $parent['children'] = [];
-            }
             $parent['children'][] = &$userHash[$user['user_id']];
         } elseif ($user['user_role'] === 'seller' && isset($userHash[$user['added_user_id']])) {
             // Seller is a child of manager
             $parent = &$userHash[$user['added_user_id']];
-            if (!isset($parent['children'])) {
-                $parent['children'] = [];
-            }
             $parent['children'][] = &$userHash[$user['user_id']];
         }
     }
 
     return $tree;
 }
+
 
 //edit user only commsion and status
 

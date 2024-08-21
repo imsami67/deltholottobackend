@@ -94,6 +94,7 @@ class DashboardController extends Controller
                 COUNT(CASE WHEN user_role = "manager" THEN 1 END) as totalManager,
                 COUNT(CASE WHEN user_role = "admin" THEN 1 END) as totalAdmin
             ')
+            ->where('status', 1)
             ->first();
 
 
@@ -144,6 +145,7 @@ class DashboardController extends Controller
 
             $jsonResponse = ['data' => $data ,
             'cutList' =>  [],
+            'unread_notifications' => 0,
             'success' => true,
             'msg'       => 'Get Successfully',
         ];
@@ -166,12 +168,14 @@ class DashboardController extends Controller
 public function adminDashboard($user)
 {
     if ($user->user_role == 'admin' ) {
-        $date = now();
+        $date = now()->setTimezone('America/Port-au-Prince'); // Set timezone to Haiti
+        $startOfDay = $date->copy()->startOfDay(); // Start of the current day
+        $endOfDay = $date->copy()->endOfDay();     // End of the current day
+
         $userId = $user->user_id;
-        $user = $user->user_id;
 
         $managerIds = DB::table('users')
-            ->where('added_user_id', $user)
+            ->where('added_user_id', $userId)
             ->where('user_role', 'manager')
             ->pluck('user_id');
 
@@ -181,33 +185,32 @@ public function adminDashboard($user)
             ->pluck('user_id');
 
         $sellerIds = array_merge($sellerIds->toArray(), DB::table('users')
-            ->where('added_user_id', $user)
+            ->where('added_user_id', $userId)
             ->where('user_role', 'seller')
             ->pluck('user_id')->toArray());
 
         $orderIds = DB::table('orders')
             ->whereIn('user_id', $sellerIds)
-            ->where('adddatetime', '>', now())
+            ->whereBetween('adddatetime', [$startOfDay, $endOfDay]) // Filter for the current day
             ->pluck('order_id');
 
         $totalSold = DB::table('orders')
             ->whereIn('user_id', $sellerIds)
-            ->where('adddatetime', '>', now())
+            ->whereBetween('adddatetime', [$startOfDay, $endOfDay]) // Filter for the current day
             ->count();
 
         $totalCollected = DB::table('orders')
             ->whereIn('user_id', $sellerIds)
-            ->where('adddatetime', '>', now())
+            ->whereBetween('adddatetime', [$startOfDay, $endOfDay]) // Filter for the current day
             ->sum('grand_total');
 
-            $totalLot = DB::table('lotteries')
-            ->where('user_added_id', $user)
+        $totalLot = DB::table('lotteries')
+            ->where('user_added_id', $userId)
             ->count();
-
 
         $totalPaid = DB::table('transactions')
             ->whereIn('seller_id', $sellerIds)
-            ->where('transaction_add_date', '>', now())
+            ->whereBetween('transaction_add_date', [$startOfDay, $endOfDay]) // Filter for the current day
             ->whereNotNull('order_item_id')
             ->where('balance', '1')
             ->sum('debit');
@@ -220,8 +223,8 @@ public function adminDashboard($user)
             ->leftJoin('users as su', 'su.added_user_id', '=', 'mu.user_id')
             ->leftJoin('orders as o', 'o.user_id', '=', 'su.user_id')
             ->where('mu.user_role', 'manager')
-            ->where('mu.added_user_id', $user)
-            ->where('o.adddatetime', '>', now())
+            ->where('mu.added_user_id', $userId)
+            ->whereBetween('o.adddatetime', [$startOfDay, $endOfDay]) // Filter for the current day
             ->groupBy('mu.user_id')
             ->sum(DB::raw('o.grand_total * mu.commission / 100'));
 
@@ -262,23 +265,20 @@ public function adminDashboard($user)
             ],
         ];
 
-        $cutHistory = DB::table('cut_history')
-        ->select('cut_sale', 'cut_commision', 'cut_winners', 'cut_balance', 'add_datetime')
-        ->where('user_id',  $user)
-        ->orderByDesc('cut_id')
-        ->limit(3)
-        ->get();
-
+        // $cutHistory = DB::table('cut_history')
+        //     ->select('cut_sale', 'cut_commision', 'cut_winners', 'cut_balance', 'add_datetime')
+        //     ->where('user_id',  $userId)
+        //     ->orderByDesc('cut_id')
+        //     ->limit(3)
+        //     ->get();
 
         $jsonResponse = [
-    'data' => $emparray ,
-    'cutList' =>  $cutHistory,
-    'success' => true,
-    'msg'       => 'Get Successfully',
-
-];
-
-
+            'data' => $emparray,
+            'cutList' => [],
+            'unread_notifications' => 0,
+            'success' => true,
+            'msg' => 'Get Successfully',
+        ];
 
         return response()->json($jsonResponse);
     }
@@ -287,193 +287,197 @@ public function adminDashboard($user)
 }
 
 
+
 // ...
 
 public function SellerDashboard($user)
 {
-    if ($user->user_role == 'seller' ) {
-        $date = now();
+    if ($user->user_role == 'seller') {
+        $date = now()->setTimezone('America/Port-au-Prince'); // Set timezone to Haiti
+        $startOfDay = $date->copy()->startOfDay(); // Start of the current day
+        $endOfDay = $date->copy()->endOfDay();     // End of the current day
+
         $userId = $user->user_id;
 
+        // Fetch the last entry from cut_history for the usery
+        $lastCutEntry = DB::table('cut_history')
+            ->where('user_id', $userId)
+            ->whereBetween('add_datetime', [$startOfDay, $endOfDay])
+            ->latest('add_datetime') // Get the latest entry based on add_datetime
+            ->first();
 
+        $finaltime = $lastCutEntry ? $lastCutEntry->add_datetime : $startOfDay;
 
-        if ($user) {
-            // Retrieve data using direct DB queries
-          
+        // Use $finaltime in other queries
+        $totalSold = DB::table('orders')
+            ->where('user_id', $userId)
+            ->where('lotterycollected', 0)
+            ->where('adddatetime', '>', $finaltime) // Apply the condition on created_at or the appropriate datetime column
+            ->count();
 
-// Fetch the last entry from cut_history for the user
-$lastCutEntry = DB::table('cut_history')
-    ->where('user_id', $userId)
-    ->latest('add_datetime') // Get the latest entry based on add_datetime
-    ->first();
-   
-
-    $finaltime = $lastCutEntry ? $lastCutEntry->add_datetime : now();
-   
-
-    // Use $finaltime in other queries
-    $totalSold = DB::table('orders')
-        ->where('user_id', $userId)
-        ->where('lotterycollected', 0)
-        ->where('adddatetime', '>', $finaltime) // Apply the condition on created_at or the appropriate datetime column
-        ->count();
-        
-        //dd($totalSold);
-
-    $totalCollected = DB::table('orders')
-        ->where('user_id', $userId)
-        ->where('lotterycollected', 0)
-        ->where('adddatetime', '>', $finaltime)
-        ->sum('grand_total');
-
-    $totalCashInHand = DB::table('transactions')
-        ->where('seller_id', $userId)
-        ->where('balance', 1)
-        ->where('transaction_add_date', '>', $finaltime)
-        ->sum('credit') - DB::table('transactions')
-        ->where('seller_id', $userId)
-        ->where('balance', 1)
-        ->where('transaction_add_date', '>', $finaltime)
-        ->sum('debit');
-
-    $totalWin = DB::table('order_item')
-        ->whereIn('order_id', DB::table('orders')
+        $totalCollected = DB::table('orders')
             ->where('user_id', $userId)
             ->where('lotterycollected', 0)
             ->where('adddatetime', '>', $finaltime)
-            ->pluck('order_id'))
-        ->sum('winning_amount');
+            ->sum('grand_total');
 
+        $totalCashInHand = DB::table('transactions')
+            ->where('seller_id', $userId)
+            ->where('balance', 1)
+            ->where('transaction_add_date', '>', $finaltime)
+            ->sum('credit') - DB::table('transactions')
+            ->where('seller_id', $userId)
+            ->where('balance', 1)
+            ->where('transaction_add_date', '>', $finaltime)
+            ->sum('debit');
 
-            $data = [
-                [
-                    'img' => asset('assets/images/1.png'),
-                    'name' => 'Total Sold',
-                    'spanishName' => 'Total vendido',
-                    'amount' => number_format($totalCollected, 2)
-                ],
-                // ... other data items with date range filters ...
-            ];
+        $totalWin = DB::table('order_item')
+            ->whereIn('order_id', DB::table('orders')
+                ->where('user_id', $userId)
+                ->where('lotterycollected', 0)
+                ->where('adddatetime', '>', $finaltime)
+                ->pluck('order_id'))
+            ->sum('winning_amount');
+            
+        $totalPaid = DB::table('order_item')
+            ->whereIn('order_id', DB::table('orders')
+                ->where('user_id', $userId)
+                ->where('adddatetime', '>', $finaltime)
+                ->pluck('order_id'))
+                ->whereNotNull('transaction_paid_id')
+            ->sum('winning_amount');    
 
-            if ($user->commission > 0) {
-                $data[] = [
-                        'img' => asset('assets/images/2.png'),
-                        'name' => 'Seller Commision',
-                        'spanishName' => 'Porcentaje De Comisión',
-                        'amount' => $user->commission . '%'
-                ];
-                $data[] = [
-                        'img' => asset('assets/images/3.png'),
-                        'name' => 'Commision Amount',
-                        'spanishName' => 'Comisión',
-                        'amount' => number_format($totalCollected * $user->commission / 100, 2)
-                ];
-            }
+        $sellerAdvance = DB::table('loans')
+            ->where('seller_id', $userId)
+            ->select(DB::raw('SUM(credit) - SUM(debit) as balance'))
+            ->where('adddatetime', '>', $finaltime)
+            ->first();
 
+        $data = [
+            [
+                'img' => asset('assets/images/1.png'),
+                'name' => 'Total Sold',
+                'spanishName' => 'Total vendido',
+                'amount' => number_format($totalCollected, 2)
+            ],
+        ];
+
+        if ($user->commission > 0) {
             $data[] = [
-                        'img' => asset('assets/images/4.png'),
-                        'name' => 'Paid winning Number',
-                        'spanishName' => 'Ganador Pagado', // total paid winniw numbers
-                        'amount' => number_format($totalWin,2),
+                'img' => asset('assets/images/2.png'),
+                'name' => 'Seller Commision',
+                'spanishName' => 'Porcentaje De Comisión',
+                'amount' => $user->commission . '%'
             ];
-
             $data[] = [
-                        'img' => asset('assets/images/5.png'),
-         	            'name' => 'Balance',
-					 	'spanishName' => 'Efectivo', // Total amount(cash in hand )
-					 	'amount' => number_format($totalCollected - $totalWin,2),
+                'img' => asset('assets/images/3.png'),
+                'name' => 'Commision Amount',
+                'spanishName' => 'Comisión',
+                'amount' => number_format($totalCollected * $user->commission / 100, 2)
             ];
-
-            if($totalCollected > 0 ){
-                $saldo = number_format($totalCollected -$user->commission -$totalWin,2);
-            }else{
-                $saldo = "0";
-            }
-
-            $data[] = [
-                        'img' => asset('assets/images/5.png'),
-			            'name' => 'Cash',
-					 	'spanishName' => 'Saldo',// seller commision in amount
-					 	'amount' => $saldo,
-            ];
-
-            // ... (rest of the code remains the same)
-
-            $cutHistory = DB::table('cut_history')
-            ->select('cut_sale', 'cut_commision', 'cut_winners', 'cut_balance', 'add_datetime')
-            ->where('user_id', $user->user_id)
-            ->orderByDesc('cut_id')
-            ->limit(3)
-            ->get();
-
-
-            $jsonResponse = [
-        'data' => $data ,
-        'cutList' =>  $cutHistory,
-        'success' => true,
-        'msg'       => 'Get Successfully',
-
-    ];
-
-            return response()->json($jsonResponse);
-
-
         }
+
+        $data[] = [
+            'img' => asset('assets/images/4.png'),
+            'name' => 'Paid winning Number',
+            'spanishName' => 'Ganador Pagado', // total paid winning numbers
+            'amount' => number_format($totalWin, 2),
+        ];
+        
+        $data[] = [
+            'img' => asset('assets/images/4.png'),
+            'name' => 'Total Paid',
+            'spanishName' => 'Total pagado', // total paid winning numbers
+            'amount' => number_format($totalPaid, 2),
+        ];
+
+        $saldo = $totalCollected > 0 ? number_format($totalCollected - $user->commission - $totalWin, 2) : "0";
+
+        $data[] = [
+            'img' => asset('assets/images/5.png'),
+            'name' => 'Advance',
+            'spanishName' => 'Saldo', // seller commission in amount
+            'amount' => $sellerAdvance->balance !== null ? $sellerAdvance->balance : '0.00',
+        ];
+
+        $data[] = [
+            'img' => asset('assets/images/5.png'),
+            'name' => 'Balance',
+            'spanishName' => 'Efectivo', // Total amount (cash in hand)
+            'amount' => number_format($totalCollected + $sellerAdvance->balance - ($totalCollected * $user->commission / 100) - $totalWin, 2),
+        ];
+
+        // $cutHistory = DB::table('cut_history')
+        //     ->select('cut_sale', 'cut_commision', 'cut_winners', 'cut_balance', 'add_datetime')
+        //     ->where('user_id', $user->user_id)
+        //     ->orderByDesc('cut_id')
+        //     ->limit(3)
+        //     ->get();
+        
+        $notifications = DB::table('notifications')->where('seller_id', $userId)->where('notification_status', 'unread')->count();
+        
+        $jsonResponse = [
+            'data' => $data,
+            'cutList' => [],
+            'unread_notifications' => $notifications,
+            'success' => true,
+            'msg' => 'Get Successfully',
+        ];
+
+        return response()->json($jsonResponse);
     }
+
+    return response()->json(['msg' => 'Invalid request'], 401);
 }
+
 
 
 
 public function managerDashboard($user)
 {
-    // Ensure the user is a user
+    // Ensure the user is a manager
     if ($user->user_role !== 'manager') {
         abort(403, 'Unauthorized');
     }
 
-    // Get the most recent cut from the management history
+    // Set timezone to Haiti and get the current day range
+    $date = now()->setTimezone('America/Port-au-Prince');
+    $startOfDay = $date->copy()->startOfDay();
+    $endOfDay = $date->copy()->endOfDay();
+
+    // Get the most recent cut from the management history within the current day
     $mostRecentCut = DB::table('cut_history')
         ->where('user_id', $user->user_id)
+        ->whereBetween('add_datetime', [$startOfDay, $endOfDay])
         ->orderBy('add_datetime', 'desc')
         ->first();
-   //dd($mostRecentCut);
-    // Set the date to show data from (using the most recent cut date or today's date)
 
+    // Set the date to show data from (using the most recent cut date or the start of the day)
+    $showFromDate = $mostRecentCut ? $mostRecentCut->add_datetime : $startOfDay;
 
-    if ($mostRecentCut !== null) {
-        $showFromDate = $mostRecentCut->add_datetime;
-    } else {
-        // Handle the case where no records were found
-        // For example, you could set $showFromDate to today's date
-        $showFromDate = date('Y-m-d'); // Assuming 'Y-m-d' format for date
-    }
-
-
-    //dd($showFromDate);
-    // Retrieve seller IDs under the user
+    // Retrieve seller IDs under the manager
     $sellerIds = DB::table('users')
         ->where('added_user_id', $user->user_id)
+        ->where('status', 1)
         ->pluck('user_id')
         ->toArray();
-   //dd($sellerIds);
-    // ... other code
 
     // Build the data array with more meaningful column names
     $dashboardData = [
         'totalSold' => DB::table('orders')
-        ->whereIn('user_id', $sellerIds)
-        ->where('adddatetime', '>', $showFromDate)
-        ->sum('grand_total'),
+            ->whereIn('user_id', $sellerIds)
+            ->where('adddatetime', '>', $showFromDate)
+            ->sum('grand_total'),
 
         'totalCollected' => DB::table('orders')
-        ->whereIn('user_id', $sellerIds)
+            ->whereIn('user_id', $sellerIds)
             ->where('adddatetime', '>', $showFromDate)
             ->sum('grand_total'),
 
         'totalSellers' => count($sellerIds),
 
         'totalCommission' => (DB::table('orders')
-        ->whereIn('user_id', $sellerIds)
+            ->whereIn('user_id', $sellerIds)
             ->where('adddatetime', '>', $showFromDate)
             ->sum('grand_total') / 100) * $user->commission,
 
@@ -504,6 +508,7 @@ public function managerDashboard($user)
             ->sum('grand_total') * 0.005,
     ];
 
+    // Prepare the dashboard data
     $dashboardArray = [
         [
             'img' => asset('assets/images/1.png'),
@@ -513,9 +518,9 @@ public function managerDashboard($user)
         ],
         [
             'img' => asset('assets/images/3.png'),
-            'name' => ' Commision ',
-            'spanishName' => 'Porcentaje De Comisión',// seller commision %
-            'amount' =>  $user->commission."%",
+            'name' => 'Commission',
+            'spanishName' => 'Porcentaje De Comisión', // seller commission %
+            'amount' =>  $user->commission . "%",
         ],
         [
             'img' => asset('assets/images/2.png'),
@@ -531,7 +536,7 @@ public function managerDashboard($user)
         ],
         [
             'img' => asset('assets/images/5.png'),
-            'name' => 'Total Paid',
+            'name' => 'Paid winning Number',
             'spanishName' => 'Total pagado',
             'amount' => number_format($dashboardData['totalPaid'], 2),
         ],
@@ -543,9 +548,9 @@ public function managerDashboard($user)
         ],
         [
             'img' => asset('assets/images/3.png'),
-            'name' => 'Cash In Hand',
+            'name' => 'Balance',
             'spanishName' => 'Dinero en mano',
-            'amount' => number_format($dashboardData['cashInHand'], 2),
+            'amount' => number_format($dashboardData['totalSold'] - $dashboardData['totalCommission'] - $dashboardData['totalWin'], 2),
         ],
         [
             'img' => asset('assets/images/3.png'),
@@ -555,27 +560,26 @@ public function managerDashboard($user)
         ],
     ];
 
+    // Retrieve cut history for the current day
+    // $cutHistory = DB::table('cut_history')
+    //     ->select('cut_sale', 'cut_commision', 'cut_winners', 'cut_balance', 'add_datetime')
+    //     ->where('user_id', $user->user_id)
+    //     ->orderByDesc('cut_id')
+    //     ->limit(3)
+    //     ->get();
 
-
-    $cutHistory = DB::table('cut_history')
-        ->select('cut_sale', 'cut_commision', 'cut_winners', 'cut_balance', 'add_datetime')
-        ->where('user_id', $user->user_id)
-        ->orderByDesc('cut_id')
-        ->limit(3)
-        ->get();
-
-
-
-     $jsonResponse = [
-        'data' => $dashboardArray ,
-        'cutList' =>  $cutHistory,
+    // Prepare the JSON response
+    $jsonResponse = [
+        'data' => $dashboardArray,
+        'cutList' => [],
+        'unread_notifications' => 0,
         'success' => true,
-        'msg'       => 'Get Successfully',
-
+        'msg' => 'Get Successfully',
     ];
 
-     return response()->json($jsonResponse);
+    return response()->json($jsonResponse);
 }
+
 
 
 

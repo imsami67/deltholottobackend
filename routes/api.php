@@ -51,7 +51,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/requestuserlist' , [UserController::class, 'requestUserList']);
     //user list based on role
-    Route::get('/userList' , [UserController::class, 'userList']);
+    Route::get('/userList/{all?}' , [UserController::class, 'userList']);
     //add Riddles
     Route::post('/changePassword' , [UserController::class, 'changePassword']);
     Route::post('/addRiddles/{rid_id?}' , [RiddlesController::class, 'store']);
@@ -74,7 +74,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/orderprint/{id}' , [OrderController::class, 'orderprint']);
     
-    Route::get('/printOrder/{id}' , [OrderController::class, 'printOrder']);
     
     Route::get('/deleteorder/{id}' , [OrderController::class, 'deleteorder']);
 
@@ -91,6 +90,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/winnigorderslist' , [WinnigController::class , 'getWinningOrders']);
     //winning amout paid by seller
 
+    Route::post('/getOrderHistory', [OrderController::class, 'getOrderHistory']);
+    
+    Route::post('/addVoucher', [SaleController::class, 'addVoucher']);
+    Route::get('/voucherList', [SaleController::class, 'voucherList']);
+    
+    Route::post('/verifyUser', [UserController::class, 'verifyUser']);
+    
+    Route::post('/approveUser', [UserController::class, 'approveUser']);
+    
+    Route::post('/addLoan', [SaleController::class, 'addLoan']);
+    Route::post('/loanList', [SaleController::class, 'loanList']);
+    
+    Route::get('/getNotifications', [UserController::class, 'getNotifications']);
+    Route::post('/readNotification', [UserController::class, 'readNotification']);
 
 });
 
@@ -98,6 +111,7 @@ Route::post('/login', [LoginController::class, 'login']);
 //Route::post('/admin', [DashboardController::class, 'admin']);
 Route::post('/requestAccess' , [UserController::class, 'requestUser']);
 
+Route::get('/printOrder/{id}/{orderItem?}' , [OrderController::class, 'printOrder']);
 
 //Riddles list
 Route::get('/riddleList' , [RiddlesController::class, 'index']);

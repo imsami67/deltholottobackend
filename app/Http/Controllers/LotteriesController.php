@@ -357,6 +357,37 @@ public function getLotteriesListAllWithTime()
              // Concatenate base URL with img_url
              $baseUrl = url('/');
     $lottery->img_url = $baseUrl . $lottery->img_url;
+    
+    // Fetch all limits from limit_game table for this lottery
+            $user = auth()->user();
+            $limits = DB::table('limit_game')
+        ->where('lottery_id', $lottery->lot_id)
+        ->where(function ($query) use ($user) {
+            $query->where('user_id', $user->user_id)
+                ->orWhere('user_id', $user->added_user_id);
+        })
+        ->get(['lot_type', 'limit_ball', 'limit_frac']); 
+
+    // Initialize arrays for each lot_type
+    $groupedLimits = [
+        'BOR' => [],
+        'MAR' => [],
+        'LOT3' => [],
+        'LOT4' => [],
+        'LOT5' => [],
+    ];
+
+    // Group the limits by lot_type
+    foreach ($limits as $limit) {
+        $groupedLimits[$limit->lot_type][] = [
+            'limit_ball' => $limit->limit_ball,
+            'limit_frac' => $limit->limit_frac,
+        ];
+    }
+
+    // Attach the grouped limits to the lottery
+    $lottery->limits = $groupedLimits;
+    
             return $lottery;
         });
         //dd($lotteries);
