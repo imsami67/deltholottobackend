@@ -22,16 +22,18 @@ Route::get('/', function () {
 
 
 Route::get('/login', function () {
-    return view('welcome');
+    return view('login');
+});
+Route::get('/dashboard', function () {
+    return view('dashboard');
 });
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/saleReport' , [SaleReportController::class, 'saleReport']);
-
+    Route::post('/saleReport', [SaleReportController::class, 'saleReport']);
 });
 
 Route::get('/print', function () {
     return view('print');
 });
 
-Route::get('/printOrder/{id}' , [OrderController::class, 'printOrder']);
+Route::get('/printOrder/{id}', [OrderController::class, 'printOrder']);
