@@ -17,7 +17,7 @@ class OrderItem extends Model
     }
 
 
-    protected $fillable = ['order_id', 'product_id', 'product_name', 'lot_number', 'lot_frac', 'lot_amount'];
+    protected $fillable = ['order_id', 'product_id', 'product_name', 'lot_number', 'lot_frac', 'lot_amount', 'lot_type', 'verify_status'];
 
       // Remove or set timestamps to false
       public $timestamps = false;

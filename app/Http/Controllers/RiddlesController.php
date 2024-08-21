@@ -61,38 +61,124 @@ return response()->json([
     }
 
     public function winingList()
-    {
-        $baseUrl = url('/');
+{
+    $baseUrl = url('/');
+    $defaultImageUrl = asset('/assets/images/logo2.png');
 
-        $result = DB::table('winning_numbers')
+    // Get all winning numbers with lotteries and users
+    $winningNumbers = DB::table('winning_numbers')
         ->join('lotteries', 'lotteries.lot_id', '=', 'winning_numbers.lot_id')
         ->join('users', 'users.user_id', '=', 'winning_numbers.added_by')
-        ->select('winning_numbers.*', 'lotteries.*', 'users.username') // Alias the users table as username
+        ->select('winning_numbers.*', 'lotteries.*', 'users.username')
         ->orderBy('win_id', 'DESC')
         ->limit(20)
         ->get();
 
+    // Get all lotteries
+    $allLotteries = DB::table('lotteries')
+        ->get();
 
-        // If $result is empty, return response with success false
-        if ($result->isEmpty()) {
-            return response()->json([
-                'success' => false,
-                'msg' => 'No winning numbers found.',
-                'data' => [],
-            ], 200);
+    $results = [];
+
+    // Create a list of lottery IDs that already have winning numbers
+    $lotteryIdsWithWinningNumbers = $winningNumbers->pluck('lot_id')->toArray();
+
+    // Process each winning number
+    foreach ($winningNumbers as $winning) {
+        $winning->img_url = $winning->img_url ? $baseUrl . $winning->img_url : $defaultImageUrl;
+
+        $baseName = substr($winning->lot_name, 0, strpos($winning->lot_name, ' ('));
+        
+        if (!isset($results[$baseName])) {
+            $results[$baseName] = [
+                'base_name' => $baseName,
+                'lotteries' => [],
+            ];
         }
 
-        // Concatenate base URL with img_url in each result
-        foreach ($result as $item) {
-            $item->img_url = $baseUrl . $item->img_url;
-        }
+        $results[$baseName]['lotteries'][] = [
+            'win_id' => $winning->win_id,
+            'add_date' => $winning->add_date,
+            'lot_id' => $winning->lot_id,
+            'number_win' => $winning->number_win,
+            'added_by' => $winning->added_by,
+            'adddatetime' => $winning->adddatetime,
+            'first_win_number' => $winning->first_win_number,
+            'second_win_number' => $winning->second_win_number,
+            'third_win_number' => $winning->third_win_number,
+            'lot_name' => $winning->lot_name,
+            'img_url' => $winning->img_url,
+            'lot_colorcode' => $winning->lot_colorcode,
+            'multiply_number' => $winning->multiply_number,
+            'winning_type' => $winning->winning_type,
+            'lot_opentime' => $winning->lot_opentime,
+            'lot_closetime' => $winning->lot_closetime,
+            'is_open' => $winning->is_open,
+            'lot_weekday' => $winning->lot_weekday,
+            'user_added_id' => $winning->user_added_id,
+            'user_edited_id' => $winning->user_edited_id,
+            'username' => $winning->username,
+        ];
 
+        // Check for similar name lottery without winning number
+        $similarLotteries = $allLotteries->filter(function ($lottery) use ($baseName, $lotteryIdsWithWinningNumbers) {
+            return strpos($lottery->lot_name, $baseName) !== false
+                   && !in_array($lottery->lot_id, $lotteryIdsWithWinningNumbers)
+                   && strpos($lottery->lot_name, ' (') !== false;
+        });
+
+        foreach ($similarLotteries as $similarLottery) {
+            $similarLottery->img_url = $similarLottery->img_url ? $baseUrl . $similarLottery->img_url : $defaultImageUrl;
+
+            $results[$baseName]['lotteries'][] = [
+                'win_id' => null,
+                'add_date' => null,
+                'lot_id' => $similarLottery->lot_id,
+                'number_win' => null,
+                'added_by' => null,
+                'adddatetime' => null,
+                'first_win_number' => null,
+                'second_win_number' => null,
+                'third_win_number' => null,
+                'lot_name' => $similarLottery->lot_name,
+                'img_url' => $similarLottery->img_url,
+                'lot_colorcode' => $similarLottery->lot_colorcode,
+                'multiply_number' => $similarLottery->multiply_number,
+                'winning_type' => $similarLottery->winning_type,
+                'lot_opentime' => $similarLottery->lot_opentime,
+                'lot_closetime' => $similarLottery->lot_closetime,
+                'is_open' => $similarLottery->is_open,
+                'lot_weekday' => $similarLottery->lot_weekday,
+                'user_added_id' => null,
+                'user_edited_id' => null,
+                'username' => null,
+            ];
+
+            // Add this lottery ID to the list to avoid duplicates
+            $lotteryIdsWithWinningNumbers[] = $similarLottery->lot_id;
+        }
+    }
+
+    // Convert results to array
+    $resultsArray = array_values($results);
+
+    // If results are empty, return response with success false
+    if (empty($resultsArray)) {
         return response()->json([
-            'success' => true,
-            'msg' => 'Winning Number list',
-            'data' => $result,
+            'success' => false,
+            'msg' => 'No winning numbers found.',
+            'data' => [],
         ], 200);
     }
+
+    return response()->json([
+        'success' => true,
+        'msg' => 'Winning Number list',
+        'data' => $resultsArray,
+    ], 200);
+}
+
+
 
 
 

@@ -19,6 +19,9 @@ class RequestUser extends Model
         'phone',
         'user_role',
         'address',
+        'cnic_front',
+        'cnic_back',
+        'verified_image',
     ];
 
     // Add any additional methods or relationships here
