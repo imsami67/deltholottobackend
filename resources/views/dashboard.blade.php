@@ -1,4 +1,9 @@
 @include('include.header')
+<style>
+    .text-red {
+        color: red;
+    }
+</style>
 
 <div class=" bg-white w-full rounded-2xl shadow-lg">
     <div class=" flex justify-between p-3 text-white rounded-t-2xl">
@@ -110,45 +115,52 @@
         });
         // Handle form submission and table update
         // Handle form submission and table update
-    $('form').on('submit', function(event) {
-        event.preventDefault(); // Prevent the default form submission
+        $('form').on('submit', function(event) {
+            event.preventDefault(); // Prevent the default form submission
 
-        var formData = $(this).serialize(); // Serialize form data
+            var formData = $(this).serialize(); // Serialize form data
 
-        $.ajax({
-            url: $(this).attr('action'), // Get form action URL
-            type: 'POST',
-            data: formData,
-            success: function(response) {
-                // Check if the response is successful
-                if (response.success) {
-                    // Clear the table body before appending new rows
-                    $('.relative tbody').empty();
+            $.ajax({
+                url: $(this).attr('action'), // Get form action URL
+                type: 'POST',
+                data: formData,
+                success: function(response) {
+                    // Check if the response is successful
+                    if (response.success) {
+                        // Clear the table body before appending new rows
+                        $('.relative tbody').empty();
 
-                    // Iterate over the response data and append rows
-                    $.each(response.data, function(name, details) {
-                        $('.relative tbody').append(`
+                        // Iterate over the response data and append rows
+                        $.each(response.data, function(name, details) {
+                            // Determine classes for styling based on values
+                            var totalSoldClass = details.orderTotalAmount - details.winnings < 0 ? 'text-red' : '';
+                            var commissionClass = details.commission < 0 ? 'text-red' : '';
+                            var balanceClass = details.balance < 0 ? 'text-red' : '';
+                            var advanceClass = details.advance < 0 ? 'text-red' : '';
+
+                            // Append row with conditional styling
+                            $('.relative tbody').append(`
                             <tr>
                                 <td class="px-6 py-4">${name}</td>
                                 <td class="px-6 py-4">${details.totalReceipts}</td>
                                 <td class="px-6 py-4">${details.orderTotalAmount}</td>
                                 <td class="px-6 py-4">${details.winningNumbersTotal}</td>
                                 <td class="px-6 py-4">${details.winnings}</td>
-                                <td class="px-6 py-4">${details.orderTotalAmount-details.winnings}</td>
-                                <td class="px-6 py-4">${details.commission}</td>
-                                <td class="px-6 py-4">${details.advance}</td>
-                                <td class="px-6 py-4">${details.balance}</td>
+                                <td class="px-6 py-4 ${totalSoldClass}">${details.orderTotalAmount - details.winnings}</td>
+                                <td class="px-6 py-4 ${commissionClass}">${details.commission}</td>
+                                <td class="px-6 py-4 ${advanceClass}">${details.advance}</td>
+                                <td class="px-6 py-4 ${balanceClass}">${details.balance}</td>
                             </tr>
                         `);
-                    });
-                } else {
-                    console.log('Error: Data not successfully returned.');
+                        });
+                    } else {
+                        console.log('Error: Data not successfully returned.');
+                    }
+                },
+                error: function(error) {
+                    console.log('Error:', error);
                 }
-            },
-            error: function(error) {
-                console.log('Error:', error);
-            }
+            });
         });
-    });
     });
 </script>
